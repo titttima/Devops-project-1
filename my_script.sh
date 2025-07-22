@@ -14,3 +14,12 @@ cd Devops-project-1/"ABC Technologies"
 # Step 3: Build the project using Maven
 mvn clean install
 
+# or 
+
+cd ~/Devops-project-1/"ABC Technologies" 
+/opt/maven/bin/mvn compile 
+/opt/maven/bin/mvn test 
+/opt/maven/bin/mvn package 
+/opt/maven/bin/mvn clean install 
+ls target/*.war 
+
