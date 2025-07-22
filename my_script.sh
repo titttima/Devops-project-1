@@ -23,3 +23,9 @@ cd ~/Devops-project-1/"ABC Technologies"
 /opt/maven/bin/mvn clean install 
 ls target/*.war 
 
+java -jar jenkins.war
+java -version
+java -jar jenkins.war --httpPort=9090
+cd ~/jenkins
+wget https://get.jenkins.io/war-stable/2.452.1/jenkins.war -O jenkins.war
+java -jar jenkins.war --httpPort=9090
