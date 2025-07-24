@@ -56,3 +56,25 @@ pipeline {
         }
     }
 }
+#set master agent node script in pipeline
+pipeline {
+    agent { label 'agent1' }
+
+    stages {
+        stage('Compile') {
+            steps {
+                echo 'Compiling...'
+            }
+        }
+        stage('Test') {
+            steps {
+                echo 'Testing...'
+            }
+        }
+        stage('Package') {
+            steps {
+                echo 'Packaging...'
+            }
+        }
+    }
+}
