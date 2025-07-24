@@ -29,3 +29,6 @@ java -jar jenkins.war --httpPort=9090
 cd ~/jenkins
 wget https://get.jenkins.io/war-stable/2.452.1/jenkins.war -O jenkins.war
 java -jar jenkins.war --httpPort=9090
+# build first job compile source code
+cd ~/Devops-project-1/"ABC Technologies"
+mvn compile
