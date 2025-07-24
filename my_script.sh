@@ -32,3 +32,27 @@ java -jar jenkins.war --httpPort=9090
 # build first job compile source code
 cd ~/Devops-project-1/"ABC Technologies"
 mvn compile
+#pipeline script in jenkins
+pipeline {
+    agent any
+
+    stages {
+        stage('Compile') {
+            steps {
+                build job: 'compile-job'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                build job: 'test-job'
+            }
+        }
+
+        stage('Package') {
+            steps {
+                build job: 'package-job'
+            }
+        }
+    }
+}
