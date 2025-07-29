@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: abc-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: abc-app
+  template:
+    metadata:
+      labels:
+        app: abc-app
+    spec:
+      containers:
+      - name: abc-container
+        image: toumaa/abcproject:1.0
+        ports:
+        - containerPort: 8080
+
