@@ -1,0 +1,30 @@
+- name: Deploy ABC Project to Kubernetes
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: Delete existing Kubernetes deployment (if any)
+      ansible.builtin.command: kubectl delete deployment abc-deployment --ignore-not-found
+      ignore_errors: true
+
+    - name: Delete existing Kubernetes service (if any)
+      ansible.builtin.command: kubectl delete service abcproject-service --ignore-not-found
+      ignore_errors: true
+
+    - name: Apply Kubernetes deployment
+      ansible.builtin.command: kubectl apply -f {{ playbook_dir }}/../k8s/deployment.yaml
+
+    - name: Apply Kubernetes service
+      ansible.builtin.command: kubectl apply -f {{ playbook_dir }}/../k8s/service.yaml
+
+    - name: Port forward service abcproject-service to localhost:8088
+      async: 3600
+      poll: 0
+      ansible.builtin.shell: kubectl port-forward svc/abcproject-service 8088:8080
+      register: port_forward
+
+    - name: Wait 5 seconds to ensure port-forward is active
+      ansible.builtin.wait_for:
+        port: 8088
+        delay: 5
+        timeout: 15
+
