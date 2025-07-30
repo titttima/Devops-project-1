@@ -17,10 +17,3 @@
     - name: Apply Kubernetes service
       ansible.builtin.command: kubectl apply -f {{ playbook_dir }}/../k8s/service.yaml
 
-    - name: Wait for port-forward to be active on port 8088
-      ansible.builtin.wait_for:
-        host: 127.0.0.1
-        port: 8088
-        delay: 5
-        timeout: 30
-
