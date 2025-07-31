@@ -1,0 +1,274 @@
+DevOps Project Automation Scripts
+Below are the scripts, configuration files, and manifests used to complete Tasks 1–5 of the Post Graduate Program in DevOps.
+________________________________________
+Task 1: Clone & Build with Maven
+``
+#!/usr/bin/env bash
+set -e
+
+# 1. Clone project
+git clone https://github.com/your-org/your-app.git
+cd your-app
+
+# 2. Build with Maven
+mvn clean compile
+________________________________________
+Task 2: Jenkins Pipeline Setup
+java -jar jenkins.war
+java -version
+java -jar jenkins.war --httpPort=9090
+cd ~/jenkins
+wget https://get.jenkins.io/war-stable/2.452.1/jenkins.war -O jenkins.war
+java -jar jenkins.war --httpPort=9090
+# build first job compile source code
+cd ~/Devops-project-1/"ABC Technologies"
+mvn compile
+``
+pipeline {
+    agent { label 'build-server' }
+
+    environment {
+        DOCKER_IMAGE = "toumaa/abcproject:1.0"
+        CONTAINER_NAME = "abc-container"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/titttima/Devops-project-1.git'
+            }
+        }
+
+        stage('Compile') {
+            steps {
+                sh '''
+                  set -e
+                  cd ABC_Technologies
+                  mvn -B clean compile
+                '''
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh '''
+                  set -e
+                  cd ABC_Technologies
+                  mvn -B test
+                '''
+            }
+        }
+
+        stage('Package WAR') {
+            steps {
+                sh '''
+                  set -e
+                  cd ABC_Technologies
+                  mvn -B package
+                '''
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                  set -e
+                  cp ABC_Technologies/target/ABCtechnologies-1.0.war .
+                  docker build -t $DOCKER_IMAGE .
+                '''
+            }
+        }
+
+        stage('Push to Docker Hub') {
+    steps {
+        withCredentials([usernamePassword(
+            credentialsId: 'dockerhub-credentials',
+            usernameVariable: 'DOCKER_USER',
+            passwordVariable: 'DOCKER_PASS'
+        )]) {
+            sh '''
+              echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+              docker push $DOCKER_IMAGE
+            '''
+        }
+    }
+}
+
+
+        stage('Deploy to Kubernetes via Ansible') {
+            steps {
+                dir('ansible-docker-deploy/playbooks') {
+                    sh '''
+                      ansible-playbook deploy_k8s.yaml
+                    '''
+                }
+            }
+        }
+    }
+}
+Set up a master‑agent configuration in Jenkins via Manage Jenkins → Manage Nodes and Clouds.
+________________________________________
+Task 3: Docker Integration
+``
+FROM tomcat:9.0-jdk11
+
+# Copy built WAR into Tomcat
+COPY target/your-app.war /usr/local/tomcat/webapps/ROOT.war
+
+EXPOSE 8080
+Extended Jenkinsfile (add Docker build and push)
+    stage('Build Docker Image') {
+      steps {
+        script {
+          docker.build("your-org/your-app:${env.BUILD_NUMBER}")
+        }
+      }
+    }
+    stage('Push Docker Image') {
+      steps {
+        withDockerRegistry([credentialsId: 'dockerhub-creds', url: '']) {
+          sh "docker push your-org/your-app:${env.BUILD_NUMBER}"
+        }
+      }
+    }
+________________________________________
+Task 4: Ansible + Kubernetes
+``
+[k8s]
+minikube ansible_host=127.0.0.1 ansible_user=youruser ansible_ssh_private_key_file=~/.ssh/id_rsa
+``
+- hosts: k8s
+  become: yes
+  tasks:
+    - name: Ensure Docker image is present
+      docker_image:
+        name: your-org/your-app
+        tag: latest
+
+    - name: Deploy to Kubernetes
+      k8s:
+        state: present
+        definition: "{{ lookup('file', '../k8s/deployment.yml') }}"
+
+    - name: Expose service
+      k8s:
+        state: present
+        definition: "{{ lookup('file', '../k8s/service.yml') }}"
+``
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: your-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: your-app
+  template:
+    metadata:
+      labels:
+        app: your-app
+    spec:
+      containers:
+      - name: your-app
+        image: your-org/your-app:latest
+        ports:
+        - containerPort: 8080
+``
+apiVersion: v1
+kind: Service
+metadata:
+  name: your-app-service
+spec:
+  selector:
+    app: your-app
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+  type: NodePort
+Integrate this Ansible playbook into Jenkins by adding a pipeline stage:
+    stage('Ansible Deploy') {
+      steps {
+        ansiblePlaybook credentialsId: 'ssh-key', inventory: 'ansible/inventory.ini', playbook: 'ansible/playbook.yml'
+      }
+    }
+________________________________________
+Task 5: Prometheus & Grafana Monitoring
+1. Prometheus & Node Exporter
+# Create a directory for Prometheus configs
+mkdir -p ~/prometheus
+
+# Create prometheus.yml under ~/prometheus/prometheus.yml
+cat <<EOF > ~/prometheus/prometheus.yml
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'node_exporter'
+    static_configs:
+      - targets: ['172.17.0.1:9100']
+EOF
+
+# Run Prometheus container mapping host port 9091->container 9090:
+docker run -d --name=prometheus \
+  -p 9091:9090 \
+  -v ~/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml \
+  prom/prometheus
+
+# Verify Prometheus targets in UI:
+# http://localhost:9091/targets
+
+# Run Node Exporter:
+docker run -d --name=node_exporter \
+  -p 9100:9100 \
+  prom/node-exporter
+2. Grafana Setup
+# Create Grafana data directory and set permissions
+mkdir -p ~/grafana
+sudo chown 472:472 ~/grafana
+
+# Start Grafana container
+docker run -d --name=grafana \
+  -p 3000:3000 \
+  -v ~/grafana:/var/lib/grafana \
+  grafana/grafana
+Navigate to http://localhost:3000, login with admin/admin (you’ll be prompted to change on first login).
+3. Add Prometheus Data Source
+In the Grafana UI:
+•	Go to Configuration → Data Sources → Add data source
+•	Select Prometheus
+•	URL: http://172.17.0.1:9091
+•	Access: Server
+•	Click Save & Test (should succeed)
+Or provision automatically by creating ~/grafana/provisioning/datasources/prometheus.yaml:
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    url: http://172.17.0.1:9091
+    access: proxy
+    isDefault: true
+4. Create Dashboard
+In the Grafana UI:
+1.	Click Create → Dashboard → Add new panel
+2.	Add panels with these PromQL expressions:
+o	CPU Total Usage:
+ 	sum(rate(node_cpu_seconds_total[5m]))
+o	Per-Core CPU Usage:
+ 	rate(node_cpu_seconds_total{mode!="idle"}[5m])
+o	Memory Used (%):
+ 	(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100
+o	Network Receive Rate:
+ 	rate(node_network_receive_bytes_total[5m])
+o	Network Transmit Rate:
+ 	rate(node_network_transmit_bytes_total[5m])
+3.	Adjust visualization types (graph/table) as desired.
+4.	Save the dashboard as Node Metrics.
+
+It is collecting and visualizing CPU, memory, and network metrics from your instance using Prometheus (on :9091) and Grafana (on :3000).
