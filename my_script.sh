@@ -34,46 +34,83 @@ cd ~/Devops-project-1/"ABC Technologies"
 mvn compile
 #pipeline script in jenkins
 pipeline {
-    agent any
+    agent { label 'build-server' }
+
+    environment {
+        DOCKER_IMAGE = "toumaa/abcproject:1.0"
+        CONTAINER_NAME = "abc-container"
+    }
 
     stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/titttima/Devops-project-1.git'
+            }
+        }
+
         stage('Compile') {
             steps {
-                build job: 'compile-job'
+                sh '''
+                  set -e
+                  cd ABC_Technologies
+                  mvn -B clean compile
+                '''
             }
         }
 
         stage('Test') {
             steps {
-                build job: 'test-job'
+                sh '''
+                  set -e
+                  cd ABC_Technologies
+                  mvn -B test
+                '''
             }
         }
 
-        stage('Package') {
+        stage('Package WAR') {
             steps {
-                build job: 'package-job'
+                sh '''
+                  set -e
+                  cd ABC_Technologies
+                  mvn -B package
+                '''
             }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                  set -e
+                  cp ABC_Technologies/target/ABCtechnologies-1.0.war .
+                  docker build -t $DOCKER_IMAGE .
+                '''
+            }
+        }
+
+        stage('Push to Docker Hub') {
+    steps {
+        withCredentials([usernamePassword(
+            credentialsId: 'dockerhub-credentials',
+            usernameVariable: 'DOCKER_USER',
+            passwordVariable: 'DOCKER_PASS'
+        )]) {
+            sh '''
+              echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+              docker push $DOCKER_IMAGE
+            '''
         }
     }
 }
-#set master agent node script in pipeline
-pipeline {
-    agent { label 'agent1' }
 
-    stages {
-        stage('Compile') {
+
+        stage('Deploy to Kubernetes via Ansible') {
             steps {
-                echo 'Compiling...'
-            }
-        }
-        stage('Test') {
-            steps {
-                echo 'Testing...'
-            }
-        }
-        stage('Package') {
-            steps {
-                echo 'Packaging...'
+                dir('ansible-docker-deploy/playbooks') {
+                    sh '''
+                      ansible-playbook deploy_k8s.yaml
+                    '''
+                }
             }
         }
     }
